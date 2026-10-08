@@ -1,9 +1,9 @@
 import os
+import pickle
 from copy import deepcopy
 
 import numpy as np
 import torch
-import pickle
 from torch import nn
 
 from utils import SEP, MyPrinter

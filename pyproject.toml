@@ -11,6 +11,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+dev = [
+    "ruff>=0.16.10",
+]
 
 [tool.uv]
 environments = ["sys_platform == 'darwin'"]

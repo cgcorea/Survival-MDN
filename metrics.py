@@ -1,4 +1,5 @@
 import warnings
+
 import numpy as np
 import torch
 from lifelines import KaplanMeierFitter
@@ -151,7 +152,7 @@ class BrierScoreMeter:
         t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]), S.shape[0])
         G_t = kmf.predict(t_span, interpolate=True).to_numpy()
 
-        ind = ((self.t.reshape(1, -1) <= t_span.reshape(-1, 1))).astype(float)
+        ind = (self.t.reshape(1, -1) <= t_span.reshape(-1, 1)).astype(float)
         labels = self.labels
 
         # Remove indices where G_t are zero
@@ -304,7 +305,7 @@ class BinomialLogLikelihoodMeter:
         t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]), S.shape[0])
         G_t = kmf.predict(t_span, interpolate=True).to_numpy()
 
-        ind = ((self.t.reshape(1, -1) <= t_span.reshape(-1, 1))).astype(float)
+        ind = (self.t.reshape(1, -1) <= t_span.reshape(-1, 1)).astype(float)
         labels = self.labels
 
         # Remove indices where G_t are zero
