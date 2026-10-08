@@ -1,14 +1,16 @@
-from __future__ import absolute_import, division, print_function
-
 import numpy as np
 import torch
-from six.moves import cPickle as pickle
-from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import (BatchSampler, DataLoader, Dataset, RandomSampler,
-                              SequentialSampler)
-from torch.utils.data.dataloader import default_collate
-
 from lifelines import KaplanMeierFitter
+from six.moves import cPickle as pickle  # type: ignore
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import (
+    BatchSampler,
+    DataLoader,
+    Dataset,
+    RandomSampler,
+    SequentialSampler,
+)
+from torch.utils.data.dataloader import default_collate
 
 NUM_WORKERS = 0
 
@@ -30,9 +32,9 @@ class DictDataset(Dataset):
 
 
 # Batch random sampler that maintains order within each batch.
-class OrderedBatchRandomSampler(object):
+class OrderedBatchRandomSampler:
     def __init__(self, n, batch_size, seed=13, drop_last=False):
-        super(OrderedBatchRandomSampler, self).__init__()
+        super().__init__()
         self.n = n
         self.batch_size = batch_size
         self.seed = seed
@@ -73,20 +75,14 @@ def my_collate_fn(batch):
         for key in batch[0][0]:
             if key in LIST_KEYS:
                 continue
-            collated_features[key] = default_collate(
-                [d[0][key] for d in batch])
+            collated_features[key] = default_collate([d[0][key] for d in batch])
         collated_labels = default_collate([d[1] for d in batch])
         collated_results = (collated_features, collated_labels)
         return collated_results
     return default_collate(batch)
 
 
-def get_dataloader(t,
-                   delta,
-                   x=None,
-                   batch_size=128,
-                   random_state=None,
-                   is_eval=False):
+def get_dataloader(t, delta, x=None, batch_size=128, random_state=None, is_eval=False):
     """
     Arguments:
       t: A (N,) numpy array for time-to-event or censoring time.
@@ -128,15 +124,15 @@ def get_dataloader(t,
         kmf.fit(t, event_observed=(1 - delta))
         G_T = kmf.predict(t, interpolate=True).to_numpy()
         for eps in [0.1, 0.2, 0.3, 0.4, 0.5]:
-            constant_dict["t_max_{}".format(eps)] = torch.tensor(
-                max(t[G_T > eps]), dtype=torch.float32)
+            constant_dict[f"t_max_{eps}"] = torch.tensor(
+                max(t[G_T > eps]), dtype=torch.float32
+            )
 
         def _collate_fn(batch):
             if isinstance(batch[0][0], dict):
                 collated_features = constant_dict  # add the constant fields
                 for key in batch[0][0]:
-                    collated_features[key] = default_collate(
-                        [d[0][key] for d in batch])
+                    collated_features[key] = default_collate([d[0][key] for d in batch])
                 collated_labels = default_collate([d[1] for d in batch])
                 collated_results = (collated_features, collated_labels)
                 return collated_results
@@ -146,60 +142,64 @@ def get_dataloader(t,
 
     if is_eval:
         sampler = BatchSampler(
-            SequentialSampler(range(N)), batch_size=batch_size, drop_last=False)
+            SequentialSampler(range(N)), batch_size=batch_size, drop_last=False
+        )
     else:
         sampler = OrderedBatchRandomSampler(N, batch_size, drop_last=True)
 
     if _collate_fn is None:
         _collate_fn = default_collate
     dataloader = DataLoader(
-        dataset, batch_sampler=sampler, collate_fn=_collate_fn, pin_memory=True,
-        num_workers=NUM_WORKERS)
+        dataset,
+        batch_sampler=sampler,
+        collate_fn=_collate_fn,
+        pin_memory=True,
+        num_workers=NUM_WORKERS,
+    )
     return dataloader
 
 
 def get_mimic_dataloader(input_file, batch_size, random_state, is_eval=False):
-        dt = np.load(input_file)
-        std_x = dt["arr_0"]
-        y = dt["arr_1"]
-        # delta 1 observe, zero censor
-        delta = y[:, 1]
-        t = y[:, 0] + 0.001
-        feature_size = std_x.shape[1]
-        dataloader = get_dataloader(
-            t,
-            delta,
-            std_x,
-            batch_size=batch_size,
-            random_state=random_state,
-            is_eval=is_eval)
+    dt = np.load(input_file)
+    std_x = dt["arr_0"]
+    y = dt["arr_1"]
+    # delta 1 observe, zero censor
+    delta = y[:, 1]
+    t = y[:, 0] + 0.001
+    feature_size = std_x.shape[1]
+    dataloader = get_dataloader(
+        t,
+        delta,
+        std_x,
+        batch_size=batch_size,
+        random_state=random_state,
+        is_eval=is_eval,
+    )
 
-        return dataloader, feature_size
+    return dataloader, feature_size
 
 
 def rnn_collate_fn(batch):
     if isinstance(batch[0][0], dict) and "seq_feat" in batch[0][0]:
         # `batch` is a list of (`features`, `labels`) pair and `features` is a
         # dict. `batch[0][0]` is the `features` of the first data sample.
-        sorted_batch = sorted(batch, key=lambda x: x[0]["seq_feat"].size(0),
-                              reverse=True)
+        sorted_batch = sorted(
+            batch, key=lambda x: x[0]["seq_feat"].size(0), reverse=True
+        )
         batch_seq_feat_list = [x[0]["seq_feat"] for x in sorted_batch]
-        batch_seq_feat_tensor = pad_sequence(batch_seq_feat_list,
-                                             batch_first=True)
+        batch_seq_feat_tensor = pad_sequence(batch_seq_feat_list, batch_first=True)
         collated_features = {"seq_feat": batch_seq_feat_tensor}
         for key in sorted_batch[0][0]:
             if key == "seq_feat":
                 continue
-            collated_features[key] = default_collate(
-                [d[0][key] for d in sorted_batch])
+            collated_features[key] = default_collate([d[0][key] for d in sorted_batch])
         collated_labels = default_collate([d[1] for d in sorted_batch])
         collated_results = (collated_features, collated_labels)
         return collated_results
     return default_collate(batch)
 
 
-def get_mimic_seq_dataloader(input_file, batch_size, random_state,
-                             is_eval=False):
+def get_mimic_seq_dataloader(input_file, batch_size, random_state, is_eval=False):
     data = pickle.load(open(input_file, "rb"))
     fix_feat = data["fix_feat"]
     seq_feat = data["seq_feat"]
@@ -225,10 +225,8 @@ def get_mimic_seq_dataloader(input_file, batch_size, random_state,
     features["t"] = torch.tensor(t, dtype=torch.float)
     features["init_cond"] = torch.tensor(init_cond, dtype=torch.float)
     features["fix_feat"] = torch.tensor(fix_feat, dtype=torch.float)
-    features["seq_feat"] = [torch.tensor(t,
-                                         dtype=torch.float) for t in seq_feat]
-    features["seq_feat_length"] = torch.tensor(seq_feat_length,
-                                               dtype=torch.long)
+    features["seq_feat"] = [torch.tensor(t, dtype=torch.float) for t in seq_feat]
+    features["seq_feat_length"] = torch.tensor(seq_feat_length, dtype=torch.long)
 
     N = len(t)
     features["index"] = torch.arange(N, dtype=torch.long)
@@ -253,25 +251,29 @@ def get_mimic_seq_dataloader(input_file, batch_size, random_state,
         kmf.fit(t, event_observed=(1 - delta))
         G_T = kmf.predict(t, interpolate=True).to_numpy()
         for eps in [0.1, 0.2, 0.3, 0.4, 0.5]:
-            constant_dict["t_max_{}".format(eps)] = torch.tensor(
-                max(t[G_T > eps]), dtype=torch.float32)
+            constant_dict[f"t_max_{eps}"] = torch.tensor(
+                max(t[G_T > eps]), dtype=torch.float32
+            )
 
         def _collate_fn(batch):
             if isinstance(batch[0][0], dict) and "seq_feat" in batch[0][0]:
                 # `batch` is a list of (`features`, `labels`) pair and `features` is a
                 # dict. `batch[0][0]` is the `features` of the first data sample.
-                sorted_batch = sorted(batch, key=lambda x: x[0]["seq_feat"].size(0),
-                                      reverse=True)
+                sorted_batch = sorted(
+                    batch, key=lambda x: x[0]["seq_feat"].size(0), reverse=True
+                )
                 batch_seq_feat_list = [x[0]["seq_feat"] for x in sorted_batch]
-                batch_seq_feat_tensor = pad_sequence(batch_seq_feat_list,
-                                                     batch_first=True)
+                batch_seq_feat_tensor = pad_sequence(
+                    batch_seq_feat_list, batch_first=True
+                )
                 collated_features = constant_dict
                 collated_features["seq_feat"] = batch_seq_feat_tensor
                 for key in sorted_batch[0][0]:
                     if key == "seq_feat":
                         continue
                     collated_features[key] = default_collate(
-                        [d[0][key] for d in sorted_batch])
+                        [d[0][key] for d in sorted_batch]
+                    )
                 collated_labels = default_collate([d[1] for d in sorted_batch])
                 collated_results = (collated_features, collated_labels)
                 return collated_results
@@ -281,26 +283,37 @@ def get_mimic_seq_dataloader(input_file, batch_size, random_state,
     N = len(t)
     if is_eval:
         sampler = BatchSampler(
-            SequentialSampler(range(N)), batch_size=batch_size, drop_last=False)
+            SequentialSampler(range(N)), batch_size=batch_size, drop_last=False
+        )
     else:
         sampler = BatchSampler(
-            RandomSampler(range(N)), batch_size=batch_size, drop_last=True)
+            RandomSampler(range(N)), batch_size=batch_size, drop_last=True
+        )
 
     dataloader = DataLoader(
-        dataset, batch_sampler=sampler, collate_fn=_collate_fn, pin_memory=True,
-        num_workers=NUM_WORKERS)
+        dataset,
+        batch_sampler=sampler,
+        collate_fn=_collate_fn,
+        pin_memory=True,
+        num_workers=NUM_WORKERS,
+    )
     return dataloader, feature_size
+
 
 def inv_func1(inputs):
     return -torch.log(inputs) / 2
+
+
 def inv_func2(inputs):
     return torch.sqrt(-torch.log(inputs) / 2)
+
+
 def generate_data(batch_size):
     x = torch.rand(batch_size, 1)
     x = (x > 0.5).long()
     t1 = inv_func1(torch.rand(batch_size))
     t2 = inv_func2(torch.rand(batch_size))
-    ind = (x.squeeze() == 0)
+    ind = x.squeeze() == 0
     t = ind * t1 + (1 - ind) * t2
     c = torch.rand(batch_size * 2)
 

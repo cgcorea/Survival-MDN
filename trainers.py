@@ -1,14 +1,13 @@
-from __future__ import absolute_import, division, print_function
-
 import os
 from copy import deepcopy
 
 import numpy as np
 import torch
-import torch.nn as nn
 from six.moves import cPickle as pickle
+from torch import nn
 from torch.autograd import Variable
-from utils import SEP, MyPrinter, to_np
+
+from utils import SEP, MyPrinter
 
 
 def detach(data):
@@ -23,33 +22,35 @@ def detach(data):
         for x in data:
             detached_data.append(detach(x))
     else:
-        raise NotImplementedError("Type {} not supported.".format(type(data)))
+        raise NotImplementedError(f"Type {type(data)} not supported.")
     return detached_data
 
 
-class MDNTrainer(object):
+class MDNTrainer:
     """MDNrainer."""
 
-    def __init__(self,
-                 model=None,
-                 device="cuda",
-                 criterions=None,
-                 optimizer=None,
-                 dataloaders=None,
-                 metrics=None,
-                 earlystop_metric_name=None,
-                 batch_size=4,
-                 num_epochs=50,
-                 patience=15,
-                 grad_clip=None,
-                 result_path=None,
-                 model_path=None,
-                 log_path=None,
-                 log_step=200,
-                 exp_name=None,
-                 verbose=1,
-                 fine_tune=False,
-                 debug=False):
+    def __init__(
+        self,
+        model=None,
+        device="cuda",
+        criterions=None,
+        optimizer=None,
+        dataloaders=None,
+        metrics=None,
+        earlystop_metric_name=None,
+        batch_size=4,
+        num_epochs=50,
+        patience=15,
+        grad_clip=None,
+        result_path=None,
+        model_path=None,
+        log_path=None,
+        log_step=200,
+        exp_name=None,
+        verbose=1,
+        fine_tune=False,
+        debug=False,
+    ):
         """Initializes an MDNTrainer.
 
         Arguments:
@@ -135,8 +136,9 @@ class MDNTrainer(object):
             if self.log_path:
                 self.log_path = SEP.join([self.log_path, "fine_tune"])
 
-        self.printer = MyPrinter(self.verbose, exp_name=exp_name,
-                                 log_path=log_path, debug=self.debug)
+        self.printer = MyPrinter(
+            self.verbose, exp_name=exp_name, log_path=log_path, debug=self.debug
+        )
 
     def initialize_metric(self):
         return np.inf
@@ -149,9 +151,14 @@ class MDNTrainer(object):
         features, labels = batch_data
         if isinstance(features, dict):
             for name in features:
-                if name == "init_cond" and "features" not in features and "seq_feat" not in features:
-                    features[name] = Variable(
-                        torch.tensor([0], dtype=torch.float)).to(self.device)
+                if (
+                    name == "init_cond"
+                    and "features" not in features
+                    and "seq_feat" not in features
+                ):
+                    features[name] = Variable(torch.tensor([0], dtype=torch.float)).to(
+                        self.device
+                    )
                 else:
                     features[name] = Variable(features[name]).to(self.device)
         else:
@@ -172,8 +179,9 @@ class MDNTrainer(object):
                 # that do not take `outputs` and `labels` as input; or the
                 # `outputs` and `labels` are dicts. Multiple if-branches could
                 # be added here.
-                raise NotImplementedError("Need to check the implementation of"
-                                          " `calculate_loss` method.")
+                raise NotImplementedError(
+                    "Need to check the implementation of `calculate_loss` method."
+                )
             else:
                 loss_dict[name] = self.criterions[name](outputs, labels)
         return loss_dict
@@ -205,8 +213,8 @@ class MDNTrainer(object):
             total_loss = sum(self.running_loss_dict.values())
             # Printing.
             self.printer.print(
-                "step %5d total loss: %.6f" % (self.curr_step, total_loss),
-                level=2)
+                "step %5d total loss: %.6f" % (self.curr_step, total_loss), level=2
+            )
             self.clear_running_loss()
 
     def train_one_epoch(self, train_loader):
@@ -230,15 +238,13 @@ class MDNTrainer(object):
         assert phase in ["valid", "test"]
         metric_value_dict = {}
         for metric_name in self.curr_metrics[phase]:
-            metric_value_dict[metric_name] = self.get_metric_value(metric_name,
-                                                                   phase)
+            metric_value_dict[metric_name] = self.get_metric_value(metric_name, phase)
         return metric_value_dict
 
     def eval_update_one_step(self, features, labels, phase="valid"):
         outputs = self.model(features)
         for metric_name in self.curr_metrics[phase]:
-            self.curr_metrics[phase][metric_name].add(detach(outputs),
-                                                      detach(labels))
+            self.curr_metrics[phase][metric_name].add(detach(outputs), detach(labels))
 
     def eval(self, phase="valid"):
         assert phase in ["valid", "test"]
@@ -249,7 +255,7 @@ class MDNTrainer(object):
             # print('pass')
             features, labels = self.wrap_batch_data(batch_data)
             self.eval_update_one_step(features, labels, phase)
-            if self.device != 'cpu':
+            if self.device != "cpu":
                 torch.cuda.empty_cache()
         # print('finish')
 
@@ -259,12 +265,15 @@ class MDNTrainer(object):
                 ckpt_name = "best_ckpt"
             model_file = "%s.pt" % SEP.join([ckpt_name, self.exp_name])
             model_file = os.path.join(self.model_path, model_file)
-            torch.save({
-                "global_step": self.global_step,
-                "metric": self.best_earlystop_metric,
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-            }, model_file)
+            torch.save(
+                {
+                    "global_step": self.global_step,
+                    "metric": self.best_earlystop_metric,
+                    "model_state_dict": self.model.state_dict(),
+                    "optimizer_state_dict": self.optimizer.state_dict(),
+                },
+                model_file,
+            )
 
     def is_earlystop_metric(self, metric_name):
         """Determine if `metric_name` should be counted in earlystop."""
@@ -277,20 +286,19 @@ class MDNTrainer(object):
         earlystop_metrics = []
         for metric_name in metric_value_dict:
             if self.is_earlystop_metric(metric_name):
-                earlystop_metrics.append(
-                    metric_value_dict[metric_name][0])
+                earlystop_metrics.append(metric_value_dict[metric_name][0])
         earlystop_metric = np.mean(earlystop_metrics)
         if self.metric_imporved(earlystop_metric, self.best_earlystop_metric):
             self.best_earlystop_metric = earlystop_metric
             self.curr_patience = self.patience
             self.maybe_save_ckpt()
-        self.printer.print(
-            "early stop metric: %.6f" % earlystop_metric, level=1)
+        self.printer.print("early stop metric: %.6f" % earlystop_metric, level=1)
 
     def maybe_save_result(self):
         if self.result_path is not None:
             result_file = "%s.pkl" % SEP.join(
-                ["%.6f" % self.best_earlystop_metric, self.exp_name])
+                ["%.6f" % self.best_earlystop_metric, self.exp_name]
+            )
             result_file = os.path.join(self.result_path, result_file)
             with open(result_file, "wb") as f:
                 pickle.dump(self.metric_value_trajectories, f)
@@ -298,8 +306,7 @@ class MDNTrainer(object):
     def train(self):
         while self.curr_epoch < self.num_epochs and self.curr_patience > 0:
             self.curr_patience -= 1
-            self.printer.print(
-                "epoch %d" % self.curr_epoch, level=1, print_time=True)
+            self.printer.print("epoch %d" % self.curr_epoch, level=1, print_time=True)
             self.train_one_epoch(self.dataloaders["train"])
 
             self.eval(phase="valid")
@@ -319,8 +326,10 @@ class MDNTrainer(object):
                 metric_value_dict = self.metric_value_trajectories[phase][-1]
                 for name in metric_value_dict:
                     self.printer.print(
-                        "Phase: %s, metric: %s: %.6f" % (
-                            phase, name, metric_value_dict[name][0]), level=1)
+                        "Phase: %s, metric: %s: %.6f"
+                        % (phase, name, metric_value_dict[name][0]),
+                        level=1,
+                    )
 
             if self.debug:
                 self.maybe_save_ckpt("ckpt_%d" % self.curr_epoch)

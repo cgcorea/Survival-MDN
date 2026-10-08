@@ -1,24 +1,22 @@
-from __future__ import absolute_import, division, print_function
-
 import argparse
 import json
 import os
 import random
+import sys
 from collections import OrderedDict
 
 import numpy as np
 import torch
-import torch.optim as optim
-from data import get_mimic_dataloader, get_mimic_seq_dataloader
-from metrics import (BinomialLogLikelihoodMeter, BrierScoreMeter, CIndexMeter,
-                     IPWCIndexMeter, ConcordanceMeter, IPWConcordanceMeter,
-                     QuantileConcordanceMeter)
+from six.moves import cPickle as pickle  # type: ignore
+from torch import optim
+
+from data import get_mimic_dataloader
 from mdn_models import MDNModel
-from six.moves import cPickle as pickle
+from metrics import BinomialLogLikelihoodMeter, BrierScoreMeter, IPWCIndexMeter
 from trainers import MDNTrainer
 from utils import SEP
 
-parser = argparse.ArgumentParser(description='Main.')
+parser = argparse.ArgumentParser(description="Main.")
 parser.add_argument("--dataset", default="support")
 parser.add_argument("--path", default="./data/support/")
 parser.add_argument("--verbose", type=int, default=2)
@@ -35,13 +33,15 @@ parser.add_argument("--split", type=int, default=1)
 parser.add_argument(
     "--model_config_file",
     default="./configs/support__rec_mlp__0__model.json",
-    help="Suggested format: Dataset_name__model_type__trial_id__model.json")
+    help="Suggested format: Dataset_name__model_type__trial_id__model.json",
+)
 
 # Training configuration.
 parser.add_argument(
     "--train_config_file",
     default="./configs/support__rec_mlp__0__train.json",
-    help="Suggested format: Dataset_name__model_type__trial_id__train.json")
+    help="Suggested format: Dataset_name__model_type__trial_id__train.json",
+)
 
 # Other configuration
 parser.add_argument("--num_epochs", type=int, default=100)
@@ -83,11 +83,9 @@ random_state = np.random.RandomState(seed=0)
 
 for phase in ["train", "valid", "test"]:
     if args.fine_tune and phase in ["train", "valid"]:
-        input_file = os.path.join(
-            args.path, phase + "_%d_fine_tune.npz" % args.split)
+        input_file = os.path.join(args.path, phase + "_%d_fine_tune.npz" % args.split)
     else:
-        input_file = os.path.join(
-            args.path, phase + "_%d.npz" % args.split)
+        input_file = os.path.join(args.path, phase + "_%d.npz" % args.split)
         filenames[phase] = input_file
     batch_size = train_config["batch_size"]
     if use_full_size_per_batch and phase == "train":
@@ -96,10 +94,8 @@ for phase in ["train", "valid", "test"]:
     elif phase != "train":
         batch_size = 1024
     dataloaders[phase], feature_size = get_mimic_dataloader(
-        input_file,
-        batch_size,
-        random_state,
-        is_eval=(phase != "train"))
+        input_file, batch_size, random_state, is_eval=(phase != "train")
+    )
 
 
 # Initialize the model.
@@ -109,18 +105,20 @@ with open(args.model_config_file) as f:
 model = MDNModel(model_config=model_config, feature_size=feature_size)
 model.to(args.device)
 
+
 # Survival loss.
 def survival_loss(outputs, labels):
     if torch.isnan(torch.abs(outputs["lambda"]).max()):
         sys.exit()
-    batch_loss = -labels * torch.log(
-        outputs["lambda"].clamp(min=1e-8)) + outputs["Lambda"]
+    batch_loss = (
+        -labels * torch.log(outputs["lambda"].clamp(min=1e-8)) + outputs["Lambda"]
+    )
     return torch.mean(batch_loss)
 
 
-class SurvivalLossMeter(object):
+class SurvivalLossMeter:
     def __init__(self):
-        super(SurvivalLossMeter, self).__init__()
+        super().__init__()
         self.reset()
 
     def add(self, outputs, labels):
@@ -140,8 +138,8 @@ criterions["survival_loss"] = survival_loss
 optimizer = optim.RMSprop(
     model.parameters(),
     lr=train_config["learning_rate"],
-    weight_decay=train_config["weight_decay"])
-
+    weight_decay=train_config["weight_decay"],
+)
 
 
 # Evaluation metrics.
@@ -202,7 +200,8 @@ trainer = MDNTrainer(
     exp_name=exp_name,
     verbose=args.verbose,
     fine_tune=(args.fine_tune or args.evaluate),
-    debug=args.debug)
+    debug=args.debug,
+)
 
 
 if not args.evaluate:
@@ -219,8 +218,7 @@ else:
         os.makedirs(eval_path)
     result_file = SEP.join(["%s.pkl" % exp_name])
     result_file = os.path.join(eval_path, result_file)
-    result = {
-        "valid": [valid_metric_value_dict], "test": [test_metric_value_dict]}
+    result = {"valid": [valid_metric_value_dict], "test": [test_metric_value_dict]}
     with open(result_file, "wb") as f:
         pickle.dump(result, f)
     trainer.printer.print(result, level=1)

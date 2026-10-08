@@ -24,8 +24,7 @@ class CIndexMeter(object):  # TODO: handle tied time
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
@@ -37,9 +36,9 @@ class CIndexMeter(object):  # TODO: handle tied time
         else:
             self.cum_hazard_seqs = np.concatenate(
                 [self.cum_hazard_seqs, self.to_numpy(outputs["cum_hazard_seqs"])],
-                axis=1)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+                axis=1,
+            )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         num = 0
@@ -62,6 +61,8 @@ class CIndexMeter(object):  # TODO: handle tied time
         self.eval_t = None
         self.cum_hazard_seqs = None
         self.labels = np.array([])
+
+
 #
 #
 # class IPWCIndexMeter(object):
@@ -144,8 +145,7 @@ class IPWCIndexMeter(object):
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
@@ -157,16 +157,16 @@ class IPWCIndexMeter(object):
         else:
             self.cum_hazard_seqs = np.concatenate(
                 [self.cum_hazard_seqs, self.to_numpy(outputs["cum_hazard_seqs"])],
-                axis=1)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+                axis=1,
+            )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         kmf = KaplanMeierFitter()
         kmf.fit(self.t, event_observed=(1 - self.labels))
         G_T = kmf.predict(self.t, interpolate=True).to_numpy()
         G_T[G_T == 0] = self.eps / 2  # still smaller than eps
-        inv_G_T_square = 1. / G_T**2
+        inv_G_T_square = 1.0 / G_T**2
 
         num = 0
         s = 0
@@ -176,8 +176,12 @@ class IPWCIndexMeter(object):
             k = np.argwhere(self.eval_t == self.t[i])[0, 0]
             idx = np.logical_or(
                 self.t > self.t[i],
-                np.logical_and(self.t == self.t[i], self.labels == 0))
-            s += sum(self.cum_hazard_seqs[k, idx] < self.cum_hazard_seqs[k, i]) * inv_G_T_square[i]
+                np.logical_and(self.t == self.t[i], self.labels == 0),
+            )
+            s += (
+                sum(self.cum_hazard_seqs[k, idx] < self.cum_hazard_seqs[k, i])
+                * inv_G_T_square[i]
+            )
             num += sum(idx) * inv_G_T_square[i]
         return [float(s) / num]
 
@@ -186,6 +190,7 @@ class IPWCIndexMeter(object):
         self.eval_t = None
         self.cum_hazard_seqs = None
         self.labels = np.array([])
+
 
 class BrierScoreMeter(object):
     def __init__(self, eps=0):
@@ -206,8 +211,7 @@ class BrierScoreMeter(object):
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
@@ -220,10 +224,9 @@ class BrierScoreMeter(object):
             self.survival_seqs = self.to_numpy(outputs[surv_key])
         else:
             self.survival_seqs = np.concatenate(
-                [self.survival_seqs, self.to_numpy(outputs[surv_key])],
-                axis=1)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+                [self.survival_seqs, self.to_numpy(outputs[surv_key])], axis=1
+            )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         S = self.survival_seqs
@@ -231,8 +234,7 @@ class BrierScoreMeter(object):
         kmf.fit(self.t, event_observed=(1 - self.labels))
         G_T = kmf.predict(self.t, interpolate=True).to_numpy()
 
-        t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]),
-                             S.shape[0])
+        t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]), S.shape[0])
         G_t = kmf.predict(t_span, interpolate=True).to_numpy()
 
         ind = ((self.t.reshape(1, -1) <= t_span.reshape(-1, 1))).astype(float)
@@ -254,7 +256,7 @@ class BrierScoreMeter(object):
         G_T = G_T.reshape(1, -1)
 
         brier = S**2 * labels * ind / G_T
-        brier += (1 - S)**2 * (1 - ind) / G_t
+        brier += (1 - S) ** 2 * (1 - ind) / G_t
         return brier.mean()
 
     def reset(self):
@@ -282,26 +284,34 @@ class ConcordanceMeter(object):
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
         self.t = np.concatenate([self.t, self.to_numpy(outputs["t"])], axis=0)
         self.prod = np.concatenate(
-            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0
+        )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         if self.save_raw:
             raw = (self.t, self.labels, self.prod)
-            return [concordance_index(
-                event_times=self.t, predicted_scores=-self.prod,
-                event_observed=self.labels), raw]
-        return [concordance_index(
-            event_times=self.t, predicted_scores=-self.prod,
-            event_observed=self.labels)]
+            return [
+                concordance_index(
+                    event_times=self.t,
+                    predicted_scores=-self.prod,
+                    event_observed=self.labels,
+                ),
+                raw,
+            ]
+        return [
+            concordance_index(
+                event_times=self.t,
+                predicted_scores=-self.prod,
+                event_observed=self.labels,
+            )
+        ]
 
     def reset(self):
         self.t = np.array([])
@@ -328,23 +338,22 @@ class IPWConcordanceMeter(object):
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
         self.t = np.concatenate([self.t, self.to_numpy(outputs["t"])], axis=0)
         self.prod = np.concatenate(
-            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0
+        )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         kmf = KaplanMeierFitter()
         kmf.fit(self.t, event_observed=(1 - self.labels))
         G_T = kmf.predict(self.t, interpolate=True).to_numpy()
         G_T[G_T == 0] = self.eps / 2  # still smaller than eps
-        inv_G_T_square = 1. / G_T**2
+        inv_G_T_square = 1.0 / G_T**2
 
         num = 0
         s = 0
@@ -353,7 +362,8 @@ class IPWConcordanceMeter(object):
                 continue
             idx = np.logical_or(
                 self.t > self.t[i],
-                np.logical_and(self.t == self.t[i], self.labels == 0))
+                np.logical_and(self.t == self.t[i], self.labels == 0),
+            )
             s += sum(self.prod[idx] < self.prod[i]) * inv_G_T_square[i]
             num += sum(idx) * inv_G_T_square[i]
         return [float(s) / num]
@@ -374,9 +384,9 @@ class QuantileConcordanceMeter(ConcordanceMeter):
     def add(self, outputs, labels):
         self.t = np.concatenate([self.t, self.to_numpy(outputs["t"])], axis=0)
         self.prod = np.concatenate(
-            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+            [self.prod, self.to_numpy(outputs[self.output_key])], axis=0
+        )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
 
 class BinomialLogLikelihoodMeter(object):
@@ -398,8 +408,7 @@ class BinomialLogLikelihoodMeter(object):
             for x in data:
                 np_data.append(self.to_numpy(x))
         else:
-            raise NotImplementedError("Type {} not supported.".format(
-                type(data)))
+            raise NotImplementedError("Type {} not supported.".format(type(data)))
         return np_data
 
     def add(self, outputs, labels):
@@ -412,10 +421,9 @@ class BinomialLogLikelihoodMeter(object):
             self.survival_seqs = self.to_numpy(outputs[surv_key])
         else:
             self.survival_seqs = np.concatenate(
-                [self.survival_seqs, self.to_numpy(outputs[surv_key])],
-                axis=1)
-        self.labels = np.concatenate(
-            [self.labels, self.to_numpy(labels)], axis=0)
+                [self.survival_seqs, self.to_numpy(outputs[surv_key])], axis=1
+            )
+        self.labels = np.concatenate([self.labels, self.to_numpy(labels)], axis=0)
 
     def value(self):
         S = self.survival_seqs
@@ -423,8 +431,7 @@ class BinomialLogLikelihoodMeter(object):
         kmf.fit(self.t, event_observed=(1 - self.labels))
         G_T = kmf.predict(self.t, interpolate=True).to_numpy()
 
-        t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]),
-                             S.shape[0])
+        t_span = np.linspace(self.t.min(), max(self.t[G_T > self.eps]), S.shape[0])
         G_t = kmf.predict(t_span, interpolate=True).to_numpy()
 
         ind = ((self.t.reshape(1, -1) <= t_span.reshape(-1, 1))).astype(float)
