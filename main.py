@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
-from six.moves import cPickle as pickle  # type: ignore
+import pickle
 from torch import optim
 
 from data import get_mimic_dataloader
@@ -21,7 +21,12 @@ parser.add_argument("--dataset", default="support")
 parser.add_argument("--path", default="./data/support/")
 parser.add_argument("--verbose", type=int, default=2)
 parser.add_argument("--debug", action="store_true")
-parser.add_argument("--device", default="cuda")
+default_device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else ("mps" if torch.backends.mps.is_available() else "cpu")
+)
+parser.add_argument("--device", default=default_device)
 parser.add_argument("--fine_tune", action="store_true")
 parser.add_argument("--evaluate", action="store_true")
 parser.add_argument("--seed", type=int, default=-1)
@@ -61,8 +66,10 @@ if args.seed >= 0:
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if args.device.startswith("cuda"):
+    if args.device.startswith("cuda") and torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
+    elif args.device.startswith("mps") and torch.backends.mps.is_available():
+        torch.mps.manual_seed(args.seed)
 
 # Load train config.
 with open(args.train_config_file) as f:

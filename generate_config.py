@@ -95,10 +95,11 @@ def sample_layer_hps(layer_type, random_state=None, **fixed_hps):
 
 def generate_model_config(random_state=None):
     """Generates a complete model config based on the `basic_model_config`."""
+    rng = random_state if random_state is not None else np.random
     config = OrderedDict()
-    config["hidden_size"] = int(2 ** (np.random.rand(1) * 4 + 3))
-    config["num_components"] = int(np.random.rand(1) * 15 + 5)
-    config["init_type"] = np.random.choice(["default", "residual", "fixed"])
+    config["hidden_size"] = int(2 ** float(rng.uniform(3, 7)))
+    config["num_components"] = int(rng.uniform(5, 20))
+    config["init_type"] = str(rng.choice(["default", "residual", "fixed"]))
     return config
 
 

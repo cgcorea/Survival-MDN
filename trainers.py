@@ -3,9 +3,8 @@ from copy import deepcopy
 
 import numpy as np
 import torch
-from six.moves import cPickle as pickle
+import pickle
 from torch import nn
-from torch.autograd import Variable
 
 from utils import SEP, MyPrinter
 
@@ -17,7 +16,7 @@ def detach(data):
         detached_data = {}
         for key in data:
             detached_data[key] = detach(data[key])
-    elif type(data) == list:
+    elif isinstance(data, list):
         detached_data = []
         for x in data:
             detached_data.append(detach(x))
@@ -128,7 +127,9 @@ class MDNTrainer:
         if fine_tune:
             model_file = "%s.pt" % SEP.join(["best_ckpt", self.exp_name])
             model_file = os.path.join(model_path, model_file)
-            ckpt = torch.load(model_file, map_location=torch.device(self.device))
+            ckpt = torch.load(
+                model_file, map_location=torch.device(self.device), weights_only=False
+            )
             self.model.load_state_dict(ckpt["model_state_dict"])
             self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
 
@@ -156,22 +157,21 @@ class MDNTrainer:
                     and "features" not in features
                     and "seq_feat" not in features
                 ):
-                    features[name] = Variable(torch.tensor([0], dtype=torch.float)).to(
-                        self.device
+                    features[name] = torch.tensor(
+                        [0], dtype=torch.float, device=self.device
                     )
                 else:
-                    features[name] = Variable(features[name]).to(self.device)
+                    features[name] = features[name].to(self.device)
         else:
-            features = Variable(features).to(self.device)
+            features = features.to(self.device)
         if isinstance(labels, dict):
             for name in labels:
-                labels[name] = Variable(labels[name]).to(self.device)
+                labels[name] = labels[name].to(self.device)
         else:
-            labels = Variable(labels).to(self.device)
+            labels = labels.to(self.device)
         return features, labels
 
     def calculate_loss(self, outputs, labels):
-        loss_dict = {}
         loss_dict = {}
         for name in self.criterions:
             if name == "":
@@ -255,7 +255,7 @@ class MDNTrainer:
             # print('pass')
             features, labels = self.wrap_batch_data(batch_data)
             self.eval_update_one_step(features, labels, phase)
-            if self.device != "cpu":
+            if str(self.device).startswith("cuda") and torch.cuda.is_available():
                 torch.cuda.empty_cache()
         # print('finish')
 
@@ -268,7 +268,7 @@ class MDNTrainer:
             torch.save(
                 {
                     "global_step": self.global_step,
-                    "metric": self.best_earlystop_metric,
+                    "metric": float(self.best_earlystop_metric),
                     "model_state_dict": self.model.state_dict(),
                     "optimizer_state_dict": self.optimizer.state_dict(),
                 },

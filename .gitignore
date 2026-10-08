@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+data/*/models/
+data/*/results/
+data/*/logs/
+.DS_Store

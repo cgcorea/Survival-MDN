@@ -1,49 +1,14 @@
 [project]
-dependencies = [
-    # "certifi==2019.11.28",
-    # "cffi==2.1.1",
-    # "ninja==1.9.0",
-    # "numpy==1.19.3",
-    # "pycparser==2.19",
-    # "setuptools==42.0.2",
-    "six==1.13.0",
-    # "wheel==0.33.6",
-    "torch==1.11.0",
-    # "autograd==1.3",
-    # "autograd-gamma==0.4.1",
-    # "cached-property==1.5.2",
-    # "chardet==4.0.0",
-    # "cycler==0.10.0",
-    # "feather-format==0.4.1",
-    # "future==0.18.2",
-    # "h5py==3.1.0",
-    # "idna==2.10",
-    # "joblib==0.14.1",
-    # "kiwisolver==1.1.0",
-    "lifelines==0.23.6",
-    # "llvmlite==0.35.0",
-    # "matplotlib==3.1.2",
-    # "numba==0.52.0",
-    # "pandas==0.25.3",
-    # "pyarrow==2.0.0",
-    "pycox==0.3.0",
-    # "pyparsing==2.4.6",
-    # "python-dateutil==2.8.1",
-    # "pytz==2019.3",
-    "requests==2.25.1",
-    "scikit-learn==1.7",
-    # sklearn==0.0 is an alias package; scikit-learn above provides sklearn.
-    # "scipy==1.4.1",
-    # "seaborn==0.9.0",
-    # "torchdiffeq==0.1.1",
-    # "torchtuples==0.2.0",
-    # "urllib3==1.26.2",
-]
 name = "survival-mdn"
 version = "0.1.0"
-description = "Add your description here"
+description = "Survival Mixture Density Networks"
 readme = "README.md"
-requires-python = "==3.10.21"
+requires-python = ">=3.14"
+dependencies = [
+    "lifelines>=0.30.0",
+    "numpy>=2.0.0",
+    "torch>=2.5.0",
+]
 
 [dependency-groups]
 

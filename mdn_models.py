@@ -149,8 +149,8 @@ def inverse_softplus_grad(x):
 
 def logsumexp(a, dim, b):
     # support subtraction in logsumexp
-    a_max = torch.max(a, dim=dim, keepdims=True)[0]
-    out = torch.log(torch.sum(b * torch.exp(a - a_max), dim=dim, keepdims=True) + 1e-6)
+    a_max = torch.max(a, dim=dim, keepdim=True)[0]
+    out = torch.log(torch.sum(b * torch.exp(a - a_max), dim=dim, keepdim=True) + 1e-6)
     out += a_max
     return out
 
@@ -265,11 +265,10 @@ class MDNModel(nn.Module):
                     1, 0
                 )  # eval_len, batch_size
 
-                # Eval for Brier Score
                 t_min = inputs["t_min"]
                 t_max = inputs["t_max"]
                 t = torch.linspace(
-                    t_min, t_max, NUM_INT_STEPS, dtype=t_min.dtype, device=device
+                    float(t_min), float(t_max), NUM_INT_STEPS, dtype=torch.float32, device=device
                 )
                 eval_t = t.unsqueeze(0).repeat(batch_size, 1)  # batch_size, eval_len
                 cdf = dist.cdf(eval_t)  # batch_size, eval_len
@@ -282,7 +281,7 @@ class MDNModel(nn.Module):
                     t_min = inputs["t_min"]
                     t_max = inputs[f"t_max_{eps}"]
                     t = torch.linspace(
-                        t_min, t_max, NUM_INT_STEPS, dtype=t_min.dtype, device=device
+                        float(t_min), float(t_max), NUM_INT_STEPS, dtype=torch.float32, device=device
                     )
                     eval_t = t.unsqueeze(0).repeat(
                         batch_size, 1

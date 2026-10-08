@@ -8,10 +8,14 @@ The code is built based on the repo https://github.com/jiaqima/SODEN
 
 ## Requirements
 
-Most required libraries should be included in `environment.yml`. To prepare the environment, run the following commands:
+The project has been modernized to support Python 3.14+, PyTorch 2.x, and NumPy 2.x.
+To set up the environment using `uv`:
 ```shell
-conda env create -f environment.yml
-conda activate soden
+uv sync
+```
+Or with `pip`:
+```shell
+pip install -e .
 ```
 
 ## Datasets

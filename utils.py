@@ -5,7 +5,7 @@ SEP = "__"  # Avoid common signs like "_".
 
 
 def to_np(x):
-    return x.data.cpu().numpy()
+    return x.detach().cpu().numpy()
 
 
 class MyPrinter:

@@ -1,8 +1,13 @@
+import pickle
+import warnings
 import numpy as np
 import torch
 from lifelines import KaplanMeierFitter
-from six.moves import cPickle as pickle  # type: ignore
+from lifelines.exceptions import ApproximationWarning
 from torch.nn.utils.rnn import pad_sequence
+
+warnings.filterwarnings("ignore", category=ApproximationWarning)
+
 from torch.utils.data import (
     BatchSampler,
     DataLoader,
@@ -130,7 +135,7 @@ def get_dataloader(t, delta, x=None, batch_size=128, random_state=None, is_eval=
 
         def _collate_fn(batch):
             if isinstance(batch[0][0], dict):
-                collated_features = constant_dict  # add the constant fields
+                collated_features = dict(constant_dict)  # add the constant fields
                 for key in batch[0][0]:
                     collated_features[key] = default_collate([d[0][key] for d in batch])
                 collated_labels = default_collate([d[1] for d in batch])
@@ -153,7 +158,7 @@ def get_dataloader(t, delta, x=None, batch_size=128, random_state=None, is_eval=
         dataset,
         batch_sampler=sampler,
         collate_fn=_collate_fn,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
         num_workers=NUM_WORKERS,
     )
     return dataloader
@@ -200,7 +205,8 @@ def rnn_collate_fn(batch):
 
 
 def get_mimic_seq_dataloader(input_file, batch_size, random_state, is_eval=False):
-    data = pickle.load(open(input_file, "rb"))
+    with open(input_file, "rb") as f:
+        data = pickle.load(f)
     fix_feat = data["fix_feat"]
     seq_feat = data["seq_feat"]
     t = data["label"][:, 0]
@@ -266,7 +272,7 @@ def get_mimic_seq_dataloader(input_file, batch_size, random_state, is_eval=False
                 batch_seq_feat_tensor = pad_sequence(
                     batch_seq_feat_list, batch_first=True
                 )
-                collated_features = constant_dict
+                collated_features = dict(constant_dict)
                 collated_features["seq_feat"] = batch_seq_feat_tensor
                 for key in sorted_batch[0][0]:
                     if key == "seq_feat":
@@ -294,7 +300,7 @@ def get_mimic_seq_dataloader(input_file, batch_size, random_state, is_eval=False
         dataset,
         batch_sampler=sampler,
         collate_fn=_collate_fn,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
         num_workers=NUM_WORKERS,
     )
     return dataloader, feature_size
