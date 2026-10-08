@@ -4,16 +4,7 @@ version = "0.1.0"
 description = "Survival Mixture Density Networks"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = [
-    "lifelines>=0.30.0",
-    "numpy>=2.0.0",
-    "torch>=2.5.0",
-]
+dependencies = ["lifelines>=0.30.0", "numpy>=2.0.0", "torch>=2.5.0"]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.16.10",
-]
-
-[tool.uv]
-environments = ["sys_platform == 'darwin'"]
+dev = ["ruff>=0.16.10"]
